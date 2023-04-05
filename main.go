@@ -8,47 +8,48 @@ import (
 )
 
 func main() {
-	// Выбираем файл с доменами
-	filePath := selectFile()
-	if filePath == "" {
-		fmt.Println("Не удалось выбрать файл")
+	// Получаем имя файла с доменами из аргументов командной строки
+	args := os.Args
+	if len(args) < 2 {
+		fmt.Println("Использование: go run main.go <имя_файла>")
 		os.Exit(1)
 	}
+	filename := args[1]
 
-	// Открываем файл с доменами
-	file, err := os.Open(filePath)
+	// Открываем файл
+	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Printf("Не удалось открыть файл %s\n", filePath)
+		fmt.Println("Ошибка открытия файла:", err)
 		os.Exit(1)
 	}
 	defer file.Close()
 
-	// Считываем домены из файла и находим для каждого IP-адрес
+	// Создаем карту для хранения доменов, сгруппированных по IP-адресу
+	domains := make(map[string][]string)
+
+	// Считываем каждую строку файла и получаем IP-адреса для каждого домена
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		domain := scanner.Text()
-		ipAddr, err := net.LookupIP(domain)
+
+		// Получаем IP-адреса для домена
+		ips, err := net.LookupIP(domain)
 		if err != nil {
-			fmt.Printf("%s - Не удалось найти IP-адрес\n", domain)
-		} else {
-			fmt.Printf("%s - %s\n", domain, ipAddr[0].String())
+			fmt.Println("Ошибка при получении IP-адреса для домена", domain, err)
+			continue
+		}
+
+		// Добавляем домен в карту, группируя по IP-адресу
+		for _, ip := range ips {
+			domains[ip.String()] = append(domains[ip.String()], domain)
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Ошибка при считывании файла")
-		os.Exit(1)
+	// Выводим домены, сгруппированные по IP-адресу
+	for ip, domains := range domains {
+		fmt.Println(ip)
+		for _, domain := range domains {
+			fmt.Println("  ", domain)
+		}
 	}
-}
-
-// Функция выбора файла с доменами
-func selectFile() string {
-	var filePath string
-	fmt.Print("Введите путь к файлу с доменами: ")
-	fmt.Scan(&filePath)
-	_, err := os.Stat(filePath)
-	if err != nil {
-		return ""
-	}
-	return filePath
 }
